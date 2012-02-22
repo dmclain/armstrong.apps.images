@@ -11,9 +11,8 @@ class ImageSet(Content):
     def first_element(self):
         if self.imagesetelement_set.all().count() > 0:
             return self.imagesetelement_set.all()[0]
-            
         return None
-        
+
 class ImageSetElement(models.Model):
     image = models.ForeignKey(Image)
     imageset = models.ForeignKey(ImageSet)
@@ -25,4 +24,3 @@ class ImageSetElement(models.Model):
         
     class Meta:
         ordering = ('order',)
-        
