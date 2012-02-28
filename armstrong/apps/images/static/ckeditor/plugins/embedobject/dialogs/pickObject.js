@@ -1,34 +1,67 @@
 CKEDITOR.dialog.add( 'pickObject', function( editor )
 {
-	// Function called in onShow to load selected element.
-	var loadElements = function( element )
-	{
-		this._.selectedElement = element;
+	function loadContentTypes(dialog) {
+		$.get('/admin/armstrong/search/generickey/facets/',
+			_.bind(displayContentTypes, dialog),
+			'json');
+	}
 
-		var attributeValue = element.data( 'cke-saved-name' );
-		this.setValueOf( 'info','txtName', attributeValue || '' );
-	};
+	function displayContentTypes( types ) {
+		this['content_types'] = types;
+		var select = this.getContentElement('info', 'content_type');
+		select.clear();
+		var keys = _.keys(types);
+		keys.sort();
+		_.each(keys, function(key){
+			select.add(key, key);
+		})
+	}
 
-	function createFakeEmbed( editor, embed )
-	{
-		return editor.createFakeElement( embed, 'arm_embed', 'embed' );
+	function contentTypeChanged() {
+		updateObjectPicker();
+		loadTemplateList(this);
+	}
+
+	function updateObjectPicker() {
+		var dialog = this.getDialog();
+		var object_id_input_id = dialog.getContentElement('info', 'object_id').getInputElement().$.id;
+		var selector = '#' + dialog.getContentElement('info', 'popup_launcher').domId;
+		$(selector).html('Loading ...');
+		var content_object_name = dialog.getValueOf('info', 'content_type');
+		var content_object = dialog['content_types'][content_object_name];
+		var html = '<a href="/admin/'+ content_object['app_label'] +'/'+ content_object_name +'" class="related-lookup" id="lookup_' + object_id_input_id + '" onclick="return showRelatedObjectLookupPopup(this);"> <img src="https://d2o6nd3dubbyr6.cloudfront.net/common/admin/img/admin/selector-search.gif" width="16" height="16" alt="Lookup" /></a>'
+		$(selector).html(html);
+	}
+
+	function loadTemplateList(dialog) {
+		$.get('/admin/armstrong/search/generickey/facets/',
+			_.bind(displayTemplateList, dialog),
+			'json');
+	}
+
+	function displayTemplateList( templates ) {
+		var select = this.getContentElement('info', 'template');
+		select.clear();
+		_.each(templates, function(template){
+			select.add(template, template);
+		})
 	}
 
 	function updatePreview() {
 		var dialog = this.getDialog();
 		var params = {
-			'content_type': dialog.getValueOf('info', 'content_type'),
+			'content_type': dialog['content_types'][dialog.getValueOf('info', 'content_type')]['id'],
 			'object_id': dialog.getValueOf('info', 'object_id'),
 			'template': dialog.getValueOf('info', 'template'),
 		}
-        $.get('/admin/armstrong/search/',
-              params,
-              function(html){
-	              	var el = dialog.getContentElement('info', 'preview');
-	              	el.html = html;
-	              	$('#' + el.domId).html(html);
-	          },
-              'html');
+		$.get('/admin/armstrong/render_model_preview/',
+			  params,
+			  function(html){
+				  	var el = dialog.getContentElement('info', 'preview');
+				  	el.html = html;
+				  	$('#' + el.domId).html(html);
+			  },
+			  'html');
 	}
 
 	return {
@@ -51,7 +84,7 @@ CKEDITOR.dialog.add( 'pickObject', function( editor )
 
 		onShow : function()
 		{
-			this.getContentElement( 'info', 'txtName' ).focus();
+			loadContentTypes(this);
 		},
 		contents : [
 			{
@@ -66,7 +99,7 @@ CKEDITOR.dialog.add( 'pickObject', function( editor )
 						label : 'Content Type',
 						required: true,
 						items : [
-							['images','23']
+							['Loading...','']
 						],
 						validate : function()
 						{
@@ -77,25 +110,34 @@ CKEDITOR.dialog.add( 'pickObject', function( editor )
 							}
 							return true;
 						},
-						onChange : function()
-						{
-						}
+						onChange : updateObjectPicker
 					},
 					{
-						type : 'text',
-						id : 'object_id',
-						label : 'Object ID',
-						required: true,
-						validate : function()
-						{
-							if ( !this.getValue() )
+						type: 'hbox',
+						children: [
 							{
-								alert( 'Please choose an object.' );
-								return false;
+								type : 'text',
+								id : 'object_id',
+								label : 'Object ID',
+								required : true,
+								validate : function()
+								{
+									if ( !this.getValue() )
+									{
+										alert( 'Please choose an object.' );
+										return false;
+									}
+									return true;
+								},
+								onChange : updatePreview
+							},
+							{
+								type : 'html',
+								id : 'popup_launcher',
+								label: 'preview',
+								html: ''
 							}
-							return true;
-						},
-						onChange : updatePreview
+						]
 					},
 					{
 						type : 'select',
